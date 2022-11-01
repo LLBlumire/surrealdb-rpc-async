@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use serde_json::Value;
-use surrealdb_ws_async::{Client, ClientAction};
+use surrealdb_rpc_async::{Client, ClientAction};
 
 #[tokio::test]
 async fn main() {

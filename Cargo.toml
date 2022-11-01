@@ -1,5 +1,5 @@
 [package]
-name = "surrealdb-ws-async"
+name = "surrealdb-rpc-async"
 version = "0.1.0"
 edition = "2021"
 
