@@ -1,8 +1,7 @@
 # Unofficial SurrealDB RPC Client
 
-```toml
-[dependencies]
-surrealdb-rpc-async = { git = "https://github.com/LLBlumire/surrealdb-rpc-async.git" }
+```bash
+cargo add --git "https://github.com/LLBlumire/surrealdb-rpc-async.git"
 ```
 
 ```rust
