@@ -1,5 +1,9 @@
 # Unofficial SurrealDB RPC Client
 
+```toml
+[dependencies]
+surrealdb-rpc-async = { git = "https://github.com/LLBlumire/surrealdb-rpc-async.git" }
+```
 
 ```rust
 let mut connect = Client::builder("ws://127.0.0.1:8000/rpc")
