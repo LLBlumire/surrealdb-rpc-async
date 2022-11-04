@@ -5,33 +5,23 @@ use std::{
 };
 
 use tokio::sync::Mutex;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
-use crate::{
-    error::{Error, Result},
-    Client, ClientAction, ClientBuilder,
-};
+use crate::{error::Result, Client, ClientBuilder};
 
-#[derive(Debug, Clone)]
-pub struct Pool<R, F> {
+#[derive(Clone)]
+pub struct Pool {
     connections: Arc<Mutex<VecDeque<Client>>>,
-    builder: ClientBuilder<R, F>,
+    builder: ClientBuilder,
 }
 
-impl<R, F> Pool<R, F> {
-    pub(crate) fn new(builder: ClientBuilder<R, F>) -> Pool<R, F> {
+impl Pool {
+    pub(crate) fn new(builder: ClientBuilder) -> Pool {
         Pool {
             connections: Default::default(),
-            builder
+            builder,
         }
     }
-}
 
-impl<R, F> Pool<R, F>
-where
-    R: Clone + IntoClientRequest + Unpin,
-    F: Clone + Fn(Error) -> ClientAction + Send + 'static,
-{
     pub async fn get(&self) -> Result<PooledClient> {
         let pool = self.connections.clone();
         if let Some(client) = self.connections.lock().await.pop_front() {

@@ -13,7 +13,7 @@ pub mod error;
 mod request;
 pub(crate) mod response;
 
-#[cfg(feature="pool")]
+#[cfg(feature = "pool")]
 pub mod pool;
 
 pub use client::Client;

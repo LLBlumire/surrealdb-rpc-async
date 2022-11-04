@@ -5,7 +5,7 @@ use surrealdb_rpc_async::{Client, ClientAction};
 
 #[tokio::test]
 async fn main() {
-    let mut connect = Client::builder("ws://127.0.0.1:8000/rpc")
+    let mut connect = Client::builder("ws://127.0.0.1:8000/rpc".into())
         .with_err_handler(|e| {
             println!("{e}: {e:?}");
             ClientAction::IgnoreError
@@ -50,13 +50,17 @@ async fn main() {
     assert_eq!(res, Value::Null);
 
     let res = connect
-        .query("\
+        .query(
+            "\
             SELECT bar FROM foo; \
             BEGIN TRANSACTION; \
             CREATE foo SET bar = 'bat'; \
             CANCEL TRANSACTION; \
             SELECT bar FROM foo \
-        ".to_string(), BTreeMap::new())
+        "
+            .to_string(),
+            BTreeMap::new(),
+        )
         .unwrap()
         .send()
         .await
@@ -68,13 +72,17 @@ async fn main() {
     assert_eq!(res[2]["result"], Value::Array(vec![]));
 
     let res = connect
-        .query("\
+        .query(
+            "\
             SELECT bar FROM foo; \
             BEGIN TRANSACTION; \
             CREATE foo SET bar = 'bat'; \
             COMMIT TRANSACTION; \
             SELECT bar FROM foo \
-        ".to_string(), BTreeMap::new())
+        "
+            .to_string(),
+            BTreeMap::new(),
+        )
         .unwrap()
         .send()
         .await
@@ -84,6 +92,4 @@ async fn main() {
         .unwrap();
     assert_eq!(res[0]["result"], Value::Array(vec![]));
     assert_eq!(res[2]["result"][0]["bar"], Value::String("bat".into()));
-
 }
-

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Deref, sync::Arc};
 
 use crate::{
     error::{Error, Result},
@@ -12,17 +12,13 @@ use tokio::{
     net::TcpStream,
     sync::{mpsc, oneshot},
 };
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 macro_rules! handle_err {
     ($err_handler:expr, $try:expr) => {
         match $try {
             Ok(e) => e,
-            Err(e) => match ($err_handler)(e.into()) {
+            Err(e) => match $err_handler.handle_error(e.into()) {
                 crate::client::ClientAction::IgnoreError => continue,
                 crate::client::ClientAction::Shutdown => return,
             },
@@ -39,7 +35,7 @@ pub struct Client {
 }
 impl Client {
     /// Create a new client
-    pub fn builder<R: IntoClientRequest + Unpin>(request: R) -> ClientBuilder<R> {
+    pub fn builder(request: String) -> ClientBuilder {
         ClientBuilder::new(request)
     }
     /// Send a ping to the server
@@ -69,9 +65,7 @@ impl Client {
             .send((request.id().to_string(), response_sink))
             .map_err(|_| Error::ClientShutdown)?;
         let message = serde_json::to_string(&request)?;
-        let send = self
-            .socket_sink
-            .send(Message::Text(message));
+        let send = self.socket_sink.send(Message::Text(message));
         Ok(Sender {
             send,
             receiver: Receiver { response_stream },
@@ -108,83 +102,80 @@ impl Receiver {
 }
 
 /// Builder pattern constructor for [`Client`]
-#[derive(Debug, Clone)]
-pub struct ClientBuilder<R, F = ()> {
-    request: R,
-    err_handler: F,
+#[derive(Clone)]
+pub struct ClientBuilder {
+    request: String,
+    err_handler: Arc<dyn ErrorHandler + Send + Sync>,
 }
 
+pub trait ErrorHandler {
+    fn handle_error(&self, error: Error) -> ClientAction;
+}
 
-impl<R> ClientBuilder<R>
+impl<T> ErrorHandler for T
 where
-    R: IntoClientRequest + Unpin,
+    T: Fn(Error) -> ClientAction,
 {
+    fn handle_error(&self, error: Error) -> ClientAction {
+        self(error)
+    }
+}
+impl ErrorHandler for () {
+    fn handle_error(&self, _error: Error) -> ClientAction {
+        ClientAction::IgnoreError
+    }
+}
+impl ErrorHandler for Arc<dyn ErrorHandler> {
+    fn handle_error(&self, error: Error) -> ClientAction {
+        self.deref().handle_error(error)
+    }
+}
+
+impl ClientBuilder {
     /// Create a new client which will connect to a surrealdb websocket
     ///
     /// ```ignore
     /// let client = ClientBuilder::new("ws://0.0.0.0:8000/rpc").build().await.unwrap()
     /// ```
-    pub fn new(request: R) -> ClientBuilder<R> {
+    pub fn new(request: String) -> ClientBuilder {
         ClientBuilder {
             request,
-            err_handler: (),
+            err_handler: Arc::new(()),
         }
     }
 }
-impl<R, A> ClientBuilder<R, A> {
+impl ClientBuilder {
     /// Set an error handler which will be called if the client receives an error message from the
     /// websocket for which it cannot identify which query is being responded to.
-    pub fn with_err_handler<F: Fn(Error) -> ClientAction>(
+    pub fn with_err_handler<F: ErrorHandler + Send + Sync + 'static>(
         self,
         err_handler: F,
-    ) -> ClientBuilder<R, F> {
+    ) -> ClientBuilder {
         ClientBuilder {
             request: self.request,
-            err_handler,
+            err_handler: Arc::new(err_handler),
         }
     }
 }
 
-impl<R, F> ClientBuilder<R, F> {
-    #[cfg(feature="pool")]
+impl ClientBuilder {
+    #[cfg(feature = "pool")]
     /// Create a client pool that will initialise new clients with the builder
-    pub fn build_pool(self) -> crate::pool::Pool<R, F> {
+    pub fn build_pool(self) -> crate::pool::Pool {
         crate::pool::Pool::new(self)
     }
 }
 
-impl<R> ClientBuilder<R>
-where
-    R: IntoClientRequest + Unpin,
-{
-    /// Create the client with no error handler, ignoring all errors
-    pub async fn build(self) -> Result<Client> {
-        ClientBuilder {
-            request: self.request,
-            err_handler: |_: Error| ClientAction::IgnoreError,
-        }
-        .build()
-        .await
-    }
-
-}
-impl<R, F> ClientBuilder<R, F>
-where
-    R: IntoClientRequest + Unpin,
-    F: Fn(Error) -> ClientAction + Send + 'static,
-{
+impl ClientBuilder {
     /// Create the client
     pub async fn build(self) -> Result<Client> {
         make_client(self.request, self.err_handler).await
     }
 }
 
-async fn make_client<
-    R: IntoClientRequest + Unpin,
-    F: Fn(Error) -> ClientAction + Send + 'static,
->(
-    request: R,
-    err_handler: F,
+async fn make_client(
+    request: String,
+    err_handler: Arc<dyn ErrorHandler + Send + Sync>,
 ) -> Result<Client> {
     // Connect to the websocket
     let (socket, _) = connect_async(request).await?;
