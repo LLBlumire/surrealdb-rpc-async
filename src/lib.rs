@@ -14,7 +14,7 @@ mod request;
 pub(crate) mod response;
 
 #[cfg(feature="pool")]
-mod pool;
+pub mod pool;
 
 pub use client::Client;
 pub use client::ClientAction;
