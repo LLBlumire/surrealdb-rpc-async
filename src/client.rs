@@ -106,6 +106,8 @@ impl Receiver {
 pub struct ClientBuilder {
     request: String,
     err_handler: Arc<dyn ErrorHandler + Send + Sync>,
+    pre_sign_in: Option<(String, String)>,
+    pre_ns_db: Option<(String, String)>,
 }
 
 pub trait ErrorHandler {
@@ -141,10 +143,11 @@ impl ClientBuilder {
         ClientBuilder {
             request,
             err_handler: Arc::new(()),
+            pre_sign_in: None,
+            pre_ns_db: None,
         }
     }
-}
-impl ClientBuilder {
+
     /// Set an error handler which will be called if the client receives an error message from the
     /// websocket for which it cannot identify which query is being responded to.
     pub fn with_err_handler<F: ErrorHandler + Send + Sync + 'static>(
@@ -154,22 +157,39 @@ impl ClientBuilder {
         ClientBuilder {
             request: self.request,
             err_handler: Arc::new(err_handler),
+            pre_sign_in: None,
+            pre_ns_db: None,
         }
     }
-}
+    
+    /// Set the sign in configuration
+    pub fn sign_in(mut self, username: String, password: String) -> Self {
+        self.pre_sign_in = Some((username, password));
+        self
+    }
+    
+    /// Set the namespace configuration
+    pub fn ns_db(mut self, ns: String, db: String) -> Self {
+        self.pre_ns_db = Some((ns, db));
+        self
+    }
 
-impl ClientBuilder {
     #[cfg(feature = "pool")]
     /// Create a client pool that will initialise new clients with the builder
     pub fn build_pool(self) -> crate::pool::Pool {
         crate::pool::Pool::new(self)
     }
-}
 
-impl ClientBuilder {
     /// Create the client
     pub async fn build(self) -> Result<Client> {
-        make_client(self.request, self.err_handler).await
+        let mut client = make_client(self.request, self.err_handler).await?;
+        if let Some((username, password)) = self.pre_sign_in {
+            client.sign_in(username, password)?.send().await?.response().await?;
+        }
+        if let Some((ns, db)) = self.pre_ns_db {
+            client.use_ns_db(ns, db)?.send().await?.response().await?;
+        }
+        Ok(client)
     }
 }
 
