@@ -5,7 +5,7 @@ use surrealdb_rpc_async::{Client, ClientAction};
 
 #[tokio::test]
 async fn main() {
-    let mut connect = Client::builder("ws://127.0.0.1:8000/rpc".into())
+    let mut connect = Client::builder("ws://127.0.0.1:8000/rpc")
         .with_err_handler(|e| {
             println!("{e}: {e:?}");
             ClientAction::IgnoreError
@@ -26,7 +26,7 @@ async fn main() {
     assert_eq!(res, Value::Bool(true));
 
     let res = connect
-        .sign_in("root".into(), "root".into())
+        .sign_in("root", "root")
         .unwrap()
         .send()
         .await
@@ -39,7 +39,7 @@ async fn main() {
     let ns = base64::encode(&rand::Rng::gen::<u128>(&mut rand::thread_rng()).to_le_bytes());
 
     let res = connect
-        .use_ns_db("client_test".into(), ns)
+        .use_ns_db("client_test", ns)
         .unwrap()
         .send()
         .await
@@ -52,13 +52,12 @@ async fn main() {
     let res = connect
         .query(
             "\
-            SELECT bar FROM foo; \
-            BEGIN TRANSACTION; \
-            CREATE foo SET bar = 'bat'; \
-            CANCEL TRANSACTION; \
-            SELECT bar FROM foo \
-        "
-            .to_string(),
+                SELECT bar FROM foo; \
+                BEGIN TRANSACTION; \
+                CREATE foo SET bar = 'bat'; \
+                CANCEL TRANSACTION; \
+                SELECT bar FROM foo \
+            ",
             BTreeMap::new(),
         )
         .unwrap()
@@ -74,13 +73,12 @@ async fn main() {
     let res = connect
         .query(
             "\
-            SELECT bar FROM foo; \
-            BEGIN TRANSACTION; \
-            CREATE foo SET bar = 'bat'; \
-            COMMIT TRANSACTION; \
-            SELECT bar FROM foo \
-        "
-            .to_string(),
+                SELECT bar FROM foo; \
+                BEGIN TRANSACTION; \
+                CREATE foo SET bar = 'bat'; \
+                COMMIT TRANSACTION; \
+                SELECT bar FROM foo \
+            ",
             BTreeMap::new(),
         )
         .unwrap()

@@ -35,7 +35,7 @@ pub struct Client {
 }
 impl Client {
     /// Create a new client
-    pub fn builder(request: String) -> ClientBuilder {
+    pub fn builder(request: impl ToString) -> ClientBuilder {
         ClientBuilder::new(request)
     }
     /// Send a ping to the server
@@ -45,17 +45,17 @@ impl Client {
     /// Send a query to the server
     pub fn query(
         &mut self,
-        query: String,
+        query: impl ToString,
         params: BTreeMap<String, serde_json::Value>,
     ) -> Result<Sender<'_>> {
-        self.send(SurrealRequest::query(query, params))
+        self.send(SurrealRequest::query(query.to_string(), params))
     }
     /// Set the namespace and database
-    pub fn use_ns_db(&mut self, ns: String, db: String) -> Result<Sender<'_>> {
-        self.send(SurrealRequest::use_ns_db(ns, db))
+    pub fn use_ns_db(&mut self, ns: impl ToString, db: impl ToString) -> Result<Sender<'_>> {
+        self.send(SurrealRequest::use_ns_db(ns.to_string(), db.to_string()))
     }
     /// Sign in to an account on the server
-    pub fn sign_in(&mut self, username: String, password: String) -> Result<Sender<'_>> {
+    pub fn sign_in(&mut self, username: impl ToString, password: impl ToString) -> Result<Sender<'_>> {
         self.send(SurrealRequest::sign_in(username, password))
     }
 
@@ -139,9 +139,9 @@ impl ClientBuilder {
     /// ```ignore
     /// let client = ClientBuilder::new("ws://0.0.0.0:8000/rpc").build().await.unwrap()
     /// ```
-    pub fn new(request: String) -> ClientBuilder {
+    pub fn new(request: impl ToString) -> ClientBuilder {
         ClientBuilder {
-            request,
+            request: request.to_string(),
             err_handler: Arc::new(()),
             pre_sign_in: None,
             pre_ns_db: None,
@@ -163,14 +163,14 @@ impl ClientBuilder {
     }
     
     /// Set the sign in configuration
-    pub fn sign_in(mut self, username: String, password: String) -> Self {
-        self.pre_sign_in = Some((username, password));
+    pub fn sign_in(mut self, username: impl ToString, password: impl ToString) -> Self {
+        self.pre_sign_in = Some((username.to_string(), password.to_string()));
         self
     }
     
     /// Set the namespace configuration
-    pub fn ns_db(mut self, ns: String, db: String) -> Self {
-        self.pre_ns_db = Some((ns, db));
+    pub fn ns_db(mut self, ns: impl ToString, db: impl ToString) -> Self {
+        self.pre_ns_db = Some((ns.to_string(), db.to_string()));
         self
     }
 
@@ -194,11 +194,11 @@ impl ClientBuilder {
 }
 
 async fn make_client(
-    request: String,
+    request: impl ToString,
     err_handler: Arc<dyn ErrorHandler + Send + Sync>,
 ) -> Result<Client> {
     // Connect to the websocket
-    let (socket, _) = connect_async(request).await?;
+    let (socket, _) = connect_async(request.to_string()).await?;
 
     // Split the websocket into a sink, which messages will be sent into, and a stream, which
     // responses will be returned from.

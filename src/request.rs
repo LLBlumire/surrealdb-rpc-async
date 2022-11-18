@@ -24,16 +24,16 @@ impl SurrealRequest {
     pub(crate) fn ping() -> SurrealRequest {
         SurrealRequestPayload::Ping([]).into()
     }
-    pub(crate) fn use_ns_db(ns: String, db: String) -> SurrealRequest {
-        SurrealRequestPayload::Use(ns, db).into()
+    pub(crate) fn use_ns_db(ns: impl ToString, db: impl ToString) -> SurrealRequest {
+        SurrealRequestPayload::Use(ns.to_string(), db.to_string()).into()
     }
-    pub(crate) fn query(query: String, params: BTreeMap<String, Value>) -> SurrealRequest {
-        SurrealRequestPayload::Query(query, params).into()
+    pub(crate) fn query(query: impl ToString, params: BTreeMap<String, Value>) -> SurrealRequest {
+        SurrealRequestPayload::Query(query.to_string(), params).into()
     }
-    pub(crate) fn sign_in(username: String, password: String) -> SurrealRequest {
+    pub(crate) fn sign_in(username: impl ToString, password: impl ToString) -> SurrealRequest {
         SurrealRequestPayload::SignIn((SignInParams {
-            user: username,
-            pass: password,
+            user: username.to_string(),
+            pass: password.to_string(),
         },))
         .into()
     }

@@ -4,7 +4,7 @@ async fn main() {
     use serde_json::Value;
     use surrealdb_rpc_async::{Client, ClientAction};
 
-    let pool = Client::builder("ws://127.0.0.1:8000/rpc".into())
+    let pool = Client::builder("ws://127.0.0.1:8000/rpc")
         .with_err_handler(|e| {
             println!("{e}: {e:?}");
             ClientAction::IgnoreError
